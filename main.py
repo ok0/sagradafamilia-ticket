@@ -13,6 +13,7 @@ import config
 import notifier
 import checker
 import booker
+import stats
 from playwright.async_api import async_playwright, Page
 
 
@@ -51,6 +52,9 @@ async def _do_booking(
         date_ok = await checker._select_date(page, target_date)
         if not date_ok:
             continue
+
+        board = stats.record(target_date)
+        notifier.log(f"【 발견 현황 】\n{board}")
 
         await asyncio.sleep(1.5)
 
@@ -234,6 +238,10 @@ def main():
     print(f"조회 간격  : {config.CHECK_INTERVAL_SECONDS // 60}분")
     print("=" * 60)
     print("Ctrl+C로 종료")
+    board = stats.scoreboard()
+    if board.strip() != "(기록 없음)":
+        print("【 누적 발견 현황 】")
+        print(board)
     print()
 
     try:

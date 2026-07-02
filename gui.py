@@ -6,12 +6,14 @@ from tkinter import ttk, scrolledtext, messagebox
 import subprocess
 import threading
 import os
+import json
 from pathlib import Path
 
 PROJECT_DIR = Path(__file__).resolve().parent
 VENV_PYTHON = PROJECT_DIR / ".venv" / "bin" / "python"
-MAIN_PY = PROJECT_DIR / "main.py"
-ENV_PATH = PROJECT_DIR / ".env"
+MAIN_PY     = PROJECT_DIR / "main.py"
+ENV_PATH    = PROJECT_DIR / ".env"
+STATS_PATH  = PROJECT_DIR / "stats.json"
 
 
 def _load_env() -> dict:
@@ -98,10 +100,13 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("사그라다 파밀리아 티켓 봇")
-        self.resizable(False, False)
+        self.geometry("780x1000")
+        self.minsize(700, 800)
+        self.resizable(True, True)
         self._proc = None
         self._build()
         self._load()
+        self._refresh_stats()
 
     # ── UI 구성 ─────────────────────────────────────────────
 
@@ -171,13 +176,33 @@ class App(tk.Tk):
         self.btn_stop.configure(state="disabled")
         self.btn_stop.pack(side="left", fill="x", expand=True)
 
+        # ── 발견 현황 ──
+        sf = ttk.LabelFrame(self, text="  발견 현황  ")
+        sf.pack(fill="x", padx=14, pady=(0, 6))
+        self.stats_text = tk.Text(
+            sf, state="disabled", height=4, font=("Courier", 12),
+            bg="#0d1117", fg="#58a6ff", relief="flat",
+            padx=10, pady=8)
+        self.stats_text.pack(fill="x", padx=6, pady=6)
+
         # ── 로그 ──
         lf = ttk.LabelFrame(self, text="  로그  ")
         lf.pack(fill="both", expand=True, padx=14, pady=(0, 14))
+
+        log_toolbar = tk.Frame(lf)
+        log_toolbar.pack(fill="x", padx=6, pady=(6, 2))
+        tk.Button(
+            log_toolbar, text="전체 복사", font=("", 11),
+            command=self._log_copy_all,
+            relief="flat", bg="#3a3a3a", fg="#d4d4d4",
+            activebackground="#555", activeforeground="white",
+            padx=10, pady=3,
+        ).pack(side="right")
+
         self.log = scrolledtext.ScrolledText(
             lf, state="disabled", height=15, font=("Courier", 11),
             bg="#1e1e1e", fg="#d4d4d4", insertbackground="white")
-        self.log.pack(fill="both", expand=True, padx=6, pady=6)
+        self.log.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
         # 클릭 시 포커스 이동 + Ctrl/Cmd+A, Ctrl/Cmd+C 직접 바인딩
         self.log.bind("<Button-1>", lambda e: self.log.focus_set())
@@ -264,6 +289,33 @@ class App(tk.Tk):
     def _stop(self):
         if self._proc:
             self._proc.terminate()
+
+    def _refresh_stats(self):
+        try:
+            if STATS_PATH.exists():
+                data = json.loads(STATS_PATH.read_text(encoding="utf-8"))
+            else:
+                data = {}
+        except Exception:
+            data = {}
+
+        if data:
+            lines = [f"  {d} : {c}회 발견" for d, c in sorted(data.items())]
+        else:
+            lines = ["  아직 발견된 날짜가 없습니다."]
+
+        self.stats_text.configure(state="normal")
+        self.stats_text.delete("1.0", "end")
+        self.stats_text.insert("end", "\n".join(lines))
+        self.stats_text.configure(state="disabled")
+
+        # 3초마다 자동 갱신
+        self.after(3000, self._refresh_stats)
+
+    def _log_copy_all(self):
+        text = self.log.get("1.0", "end-1c")
+        self.clipboard_clear()
+        self.clipboard_append(text)
 
     def _log_select_all(self, event=None):
         self.log.tag_add("sel", "1.0", "end")

@@ -131,7 +131,7 @@ async def _select_date(page: Page, target_date: str) -> bool:
 async def _select_time(page: Page, target_time: str) -> bool:
     """구간을 순서대로 클릭하며 target_time이 있는 구간을 찾아 선택."""
     try:
-        await page.wait_for_selector("div.event-group-tabs", timeout=8000)
+        await page.wait_for_selector("div.event-group-tabs", timeout=3000)
     except PWTimeout:
         notifier.log("시간 구간 탭을 찾지 못했습니다.")
         return False
