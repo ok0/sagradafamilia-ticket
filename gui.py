@@ -100,13 +100,45 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("사그라다 파밀리아 티켓 봇")
-        self.geometry("780x1000")
-        self.minsize(700, 800)
+        self.geometry("780x900")
+        self.minsize(700, 600)
         self.resizable(True, True)
         self._proc = None
+        self._make_scroll_container()
         self._build()
         self._load()
         self._refresh_stats()
+
+    def _make_scroll_container(self):
+        """전체 내용을 스크롤 가능한 Canvas + Frame 으로 감싼다."""
+        canvas = tk.Canvas(self, highlightthickness=0)
+        vsb = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+
+        vsb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        self._frame = tk.Frame(canvas)
+        win_id = canvas.create_window((0, 0), window=self._frame, anchor="nw")
+
+        def _on_frame_resize(e):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_resize(e):
+            canvas.itemconfig(win_id, width=e.width)
+
+        self._frame.bind("<Configure>", _on_frame_resize)
+        canvas.bind("<Configure>", _on_canvas_resize)
+
+        # 트랙패드 / 마우스 휠 스크롤 (macOS)
+        def _scroll(e):
+            if e.delta > 0:
+                canvas.yview_scroll(-1, "units")
+            elif e.delta < 0:
+                canvas.yview_scroll(1, "units")
+
+        canvas.bind_all("<MouseWheel>", _scroll)
+        self._canvas = canvas
 
     # ── UI 구성 ─────────────────────────────────────────────
 
@@ -122,10 +154,11 @@ class App(tk.Tk):
         return var
 
     def _build(self):
+        F = self._frame
         P = {"padx": 14, "pady": 6, "fill": "x"}
 
         # ── 예매 설정 ──
-        f1 = ttk.LabelFrame(self, text="  예매 설정  ")
+        f1 = ttk.LabelFrame(F, text="  예매 설정  ")
         f1.pack(**P)
         f1.columnconfigure(1, weight=1)
         self.v_date = self._entry_row(f1, "날짜", 0, "예: 2026-07-30,2026-07-31  (쉼표로 다중 입력)")
@@ -152,7 +185,7 @@ class App(tk.Tk):
         ).grid(row=7, column=0, columnspan=2, sticky="w", padx=(6, 10), pady=(2, 6))
 
         # ── 방문자 1 ──
-        f2 = ttk.LabelFrame(self, text="  방문자 1  ")
+        f2 = ttk.LabelFrame(F, text="  방문자 1  ")
         f2.pack(**P)
         f2.columnconfigure(1, weight=1)
         self.v_p1_name = self._entry_row(f2, "이름 (영문)", 0)
@@ -160,7 +193,7 @@ class App(tk.Tk):
         self.v_p1_pp   = self._entry_row(f2, "여권번호", 2)
 
         # ── 방문자 2 ──
-        f3 = ttk.LabelFrame(self, text="  방문자 2  ")
+        f3 = ttk.LabelFrame(F, text="  방문자 2  ")
         f3.pack(**P)
         f3.columnconfigure(1, weight=1)
         self.v_p2_name = self._entry_row(f3, "이름 (영문)", 0)
@@ -168,7 +201,7 @@ class App(tk.Tk):
         self.v_p2_pp   = self._entry_row(f3, "여권번호", 2)
 
         # ── 버튼 ──
-        bf = tk.Frame(self)
+        bf = tk.Frame(F)
         bf.pack(fill="x", padx=14, pady=8)
         self.btn_start = _ColorBtn(bf, "▶  모니터링 시작", self._start, bg="#00b341")
         self.btn_start.pack(side="left", fill="x", expand=True, padx=(0, 6))
@@ -177,7 +210,7 @@ class App(tk.Tk):
         self.btn_stop.pack(side="left", fill="x", expand=True)
 
         # ── 발견 현황 ──
-        sf = ttk.LabelFrame(self, text="  발견 현황  ")
+        sf = ttk.LabelFrame(F, text="  발견 현황  ")
         sf.pack(fill="x", padx=14, pady=(0, 6))
         self.stats_text = tk.Text(
             sf, state="disabled", height=4, font=("Courier", 12),
@@ -186,8 +219,8 @@ class App(tk.Tk):
         self.stats_text.pack(fill="x", padx=6, pady=6)
 
         # ── 로그 ──
-        lf = ttk.LabelFrame(self, text="  로그  ")
-        lf.pack(fill="both", expand=True, padx=14, pady=(0, 14))
+        lf = ttk.LabelFrame(F, text="  로그  ")
+        lf.pack(fill="x", padx=14, pady=(0, 14))
 
         log_toolbar = tk.Frame(lf)
         log_toolbar.pack(fill="x", padx=6, pady=(6, 2))
@@ -200,9 +233,9 @@ class App(tk.Tk):
         ).pack(side="right")
 
         self.log = scrolledtext.ScrolledText(
-            lf, state="disabled", height=15, font=("Courier", 11),
+            lf, state="disabled", height=20, font=("Courier", 11),
             bg="#1e1e1e", fg="#d4d4d4", insertbackground="white")
-        self.log.pack(fill="both", expand=True, padx=6, pady=(0, 6))
+        self.log.pack(fill="x", padx=6, pady=(0, 6))
 
         # 클릭 시 포커스 이동 + Ctrl/Cmd+A, Ctrl/Cmd+C 직접 바인딩
         self.log.bind("<Button-1>", lambda e: self.log.focus_set())

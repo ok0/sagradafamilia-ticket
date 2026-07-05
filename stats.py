@@ -1,5 +1,6 @@
-"""날짜별 가용 발견 횟수를 stats.json에 누적 기록한다."""
+"""날짜별 가용 발견 횟수 + 마지막 발견 시각을 stats.json에 누적 기록한다."""
 import json
+from datetime import datetime
 from pathlib import Path
 
 _STATS_FILE = Path(__file__).resolve().parent / "stats.json"
@@ -24,7 +25,13 @@ def _save(data: dict):
 def record(date: str) -> str:
     """발견 횟수를 1 증가시키고 전광판 문자열을 반환한다."""
     data = _load()
-    data[date] = data.get(date, 0) + 1
+    entry = data.get(date, {"count": 0, "last": ""})
+    # 이전 버전(값이 int)과의 호환성 처리
+    if isinstance(entry, int):
+        entry = {"count": entry, "last": ""}
+    entry["count"] += 1
+    entry["last"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data[date] = entry
     _save(data)
     return _format(data)
 
@@ -37,7 +44,13 @@ def scoreboard() -> str:
 def _format(data: dict) -> str:
     if not data:
         return "  (기록 없음)"
-    return "\n".join(
-        f"  {d}: {c}회 발견"
-        for d, c in sorted(data.items())
-    )
+    lines = []
+    for d in sorted(data.keys()):
+        entry = data[d]
+        if isinstance(entry, int):
+            lines.append(f"  {d} : {entry}회 발견")
+        else:
+            count = entry.get("count", 0)
+            last  = entry.get("last", "")
+            lines.append(f"  {d} : {count}회 발견  (마지막: {last})")
+    return "\n".join(lines)
