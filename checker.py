@@ -185,7 +185,7 @@ async def check_availability(headless: bool = True) -> tuple[bool, str, str]:
                 await asyncio.sleep(1.5)
 
                 # 같은 날짜에서 시간만 순서대로 시도 (페이지 새로고침 없음)
-                for target_time in config.TARGET_TIMES:
+                for target_time in config.get_times_for_date(target_date):
                     notifier.log(f"시간 확인: {target_date} {target_time}")
                     time_ok = await _select_time(page, target_time)
                     if time_ok:

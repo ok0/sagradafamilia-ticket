@@ -58,7 +58,7 @@ async def _do_booking(
 
         await asyncio.sleep(1.5)
 
-        for target_time in config.TARGET_TIMES:
+        for target_time in config.get_times_for_date(target_date):
             if done_event.is_set():
                 return False
 
@@ -146,8 +146,7 @@ async def run_persistent() -> None:
         while True:
             attempt += 1
             dates_str = ", ".join(config.TARGET_DATES)
-            times_str = ", ".join(config.TARGET_TIMES)
-            notifier.log(f"[시도 {attempt}] 날짜: {dates_str} / 시간: {times_str} 가용성 확인 중...")
+            notifier.log(f"[시도 {attempt}] 날짜: {dates_str} 가용성 확인 중...")
 
             done_event = asyncio.Event()
             tasks = [
@@ -186,8 +185,7 @@ async def monitor_loop(auto_book: bool):
     while True:
         attempt += 1
         dates_str = ", ".join(config.TARGET_DATES)
-        times_str = ", ".join(config.TARGET_TIMES)
-        notifier.log(f"[시도 {attempt}] 날짜: {dates_str} / 시간: {times_str} 가용성 확인 중...")
+        notifier.log(f"[시도 {attempt}] 날짜: {dates_str} 가용성 확인 중...")
 
         if auto_book:
             success = await run_parallel()
@@ -229,8 +227,9 @@ def main():
     print("=" * 60)
     print("사그라다 파밀리아 티켓 모니터")
     print("=" * 60)
-    print(f"목표 날짜  : {', '.join(config.TARGET_DATES)}")
-    print(f"목표 시간  : {', '.join(config.TARGET_TIMES)}")
+    print("목표 날짜/시간:")
+    for _d, _ts in config.DATE_TIMES.items():
+        print(f"  {_d}  →  {', '.join(_ts)}")
     print(f"인원       : General {config.NUM_PEOPLE}명")
     print(f"병렬 수    : {config.PARALLEL_COUNT}")
     print(f"브라우저   : {'유지 모드 (최소화)' if config.KEEP_BROWSER else '일반 모드 (매 시도마다 열고 닫기)'}")

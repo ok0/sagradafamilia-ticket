@@ -153,6 +153,27 @@ class App(tk.Tk):
                 row=row + 1, column=1, sticky="w", padx=(0, 10))
         return var
 
+    def _add_dt_row(self, date="", times=""):
+        row_frame = tk.Frame(self._dt_container)
+        row_frame.pack(fill="x", pady=2)
+
+        date_var  = tk.StringVar(value=date)
+        times_var = tk.StringVar(value=times)
+
+        tk.Entry(row_frame, textvariable=date_var,  width=13, font=("Courier", 11)).pack(side="left")
+        tk.Label(row_frame, text="  @  ", fg="#888").pack(side="left")
+        tk.Entry(row_frame, textvariable=times_var, font=("Courier", 11)).pack(
+            side="left", fill="x", expand=True, padx=(0, 4))
+
+        def _remove():
+            self._dt_rows = [(d, t, f) for d, t, f in self._dt_rows if f is not row_frame]
+            row_frame.destroy()
+
+        tk.Button(row_frame, text="✕", command=_remove, relief="flat",
+                  bg="#c0392b", fg="white", font=("", 10), padx=5).pack(side="left")
+
+        self._dt_rows.append((date_var, times_var, row_frame))
+
     def _build(self):
         F = self._frame
         P = {"padx": 14, "pady": 6, "fill": "x"}
@@ -161,28 +182,46 @@ class App(tk.Tk):
         f1 = ttk.LabelFrame(F, text="  예매 설정  ")
         f1.pack(**P)
         f1.columnconfigure(1, weight=1)
-        self.v_date = self._entry_row(f1, "날짜", 0, "예: 2026-07-30,2026-07-31  (쉼표로 다중 입력)")
-        self.v_time = self._entry_row(f1, "시간", 2, "예: 10:00,10:15,13:00  (쉼표로 다중 입력, 15분 간격)")
+
+        # 날짜/시간 테이블
+        dt_outer = tk.Frame(f1)
+        dt_outer.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=(8, 4))
+
+        hdr = tk.Frame(dt_outer)
+        hdr.pack(fill="x", pady=(0, 2))
+        tk.Label(hdr, text="날짜", width=13, anchor="w", font=("", 11, "bold")).pack(side="left")
+        tk.Label(hdr, text="시간 (쉼표로 구분)", anchor="w", font=("", 11, "bold")).pack(side="left", padx=(28, 0))
+
+        self._dt_container = tk.Frame(dt_outer)
+        self._dt_container.pack(fill="x")
+        self._dt_rows: list = []
+
+        tk.Label(dt_outer, text="예) 2026-07-30  @  17:00,18:00,19:00", fg="#888", font=("", 10)).pack(
+            anchor="w", pady=(3, 0))
+
+        tk.Button(dt_outer, text="＋ 날짜/시간 추가", command=self._add_dt_row,
+                  relief="flat", bg="#2d4a2d", fg="#90ee90", font=("", 11),
+                  padx=8, pady=3).pack(anchor="w", pady=(6, 2))
 
         tk.Label(f1, text="인원 수", anchor="w", width=18).grid(
-            row=4, column=0, sticky="w", padx=(10, 4), pady=5)
+            row=1, column=0, sticky="w", padx=(10, 4), pady=5)
         self.v_people = tk.StringVar(value="2")
         tk.Spinbox(f1, from_=1, to=10, textvariable=self.v_people, width=6,
-                   font=("", 13)).grid(row=4, column=1, sticky="w", padx=(0, 10), pady=5)
+                   font=("", 13)).grid(row=1, column=1, sticky="w", padx=(0, 10), pady=5)
 
         tk.Label(f1, text="동시 진행 수", anchor="w", width=18).grid(
-            row=5, column=0, sticky="w", padx=(10, 4), pady=5)
+            row=2, column=0, sticky="w", padx=(10, 4), pady=5)
         self.v_parallel = tk.StringVar(value="1")
         tk.Spinbox(f1, from_=1, to=4, textvariable=self.v_parallel, width=6,
-                   font=("", 13)).grid(row=5, column=1, sticky="w", padx=(0, 10), pady=5)
+                   font=("", 13)).grid(row=2, column=1, sticky="w", padx=(0, 10), pady=5)
         tk.Label(f1, text="날짜를 N개 그룹으로 나눠 동시 진행", fg="#888", font=("", 10)).grid(
-            row=6, column=1, sticky="w", padx=(0, 10))
+            row=3, column=1, sticky="w", padx=(0, 10))
 
         self.v_keep_browser = tk.BooleanVar()
         tk.Checkbutton(
             f1, text="브라우저 유지 모드  (크롬을 한 번만 열고 최소화 유지 — 체크아웃 시에만 화면 표시)",
             variable=self.v_keep_browser, anchor="w",
-        ).grid(row=7, column=0, columnspan=2, sticky="w", padx=(6, 10), pady=(2, 6))
+        ).grid(row=4, column=0, columnspan=2, sticky="w", padx=(6, 10), pady=(2, 6))
 
         # ── 방문자 1 ──
         f2 = ttk.LabelFrame(F, text="  방문자 1  ")
@@ -254,8 +293,23 @@ class App(tk.Tk):
 
     def _load(self):
         e = _load_env()
-        self.v_date.set(e.get("TARGET_DATE", ""))
-        self.v_time.set(e.get("TARGET_TIME", ""))
+        # 날짜/시간 행 로드
+        dt_raw = e.get("TARGET_DATE_TIME", "").strip()
+        if dt_raw:
+            for entry in dt_raw.split(";"):
+                entry = entry.strip()
+                if "@" in entry:
+                    d, t = entry.split("@", 1)
+                    self._add_dt_row(d.strip(), t.strip())
+        else:
+            # 구형 형식 호환
+            dates = [d.strip() for d in e.get("TARGET_DATE", "").split(",") if d.strip()]
+            times = e.get("TARGET_TIME", "")
+            for d in dates:
+                self._add_dt_row(d, times)
+        if not self._dt_rows:
+            self._add_dt_row()
+
         self.v_people.set(e.get("NUM_PEOPLE", "2"))
         self.v_parallel.set(e.get("PARALLEL_COUNT", "1"))
         self.v_keep_browser.set(e.get("KEEP_BROWSER", "false").lower() == "true")
@@ -267,9 +321,14 @@ class App(tk.Tk):
         self.v_p2_pp.set(e.get("PERSON2_PASSPORT", ""))
 
     def _save(self):
+        parts = []
+        for dv, tv, _ in self._dt_rows:
+            d = dv.get().strip()
+            t = tv.get().strip()
+            if d:
+                parts.append(f"{d}@{t}")
         _save_env({
-            "TARGET_DATE":      self.v_date.get().strip(),
-            "TARGET_TIME":      self.v_time.get().strip(),
+            "TARGET_DATE_TIME": ";".join(parts),
             "NUM_PEOPLE":       self.v_people.get().strip(),
             "PARALLEL_COUNT":   self.v_parallel.get().strip(),
             "KEEP_BROWSER":     "true" if self.v_keep_browser.get() else "false",
@@ -284,10 +343,10 @@ class App(tk.Tk):
     # ── 실행 ────────────────────────────────────────────────
 
     def _validate(self) -> bool:
-        if not self.v_date.get().strip():
+        if not any(dv.get().strip() for dv, _, _ in self._dt_rows):
             messagebox.showwarning("입력 오류", "날짜를 입력해주세요.")
             return False
-        if not self.v_time.get().strip():
+        if not any(tv.get().strip() for _, tv, _ in self._dt_rows):
             messagebox.showwarning("입력 오류", "시간을 입력해주세요.")
             return False
         if not self.v_p1_name.get().strip() or not self.v_p1_sur.get().strip():
