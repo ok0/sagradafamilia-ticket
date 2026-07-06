@@ -212,11 +212,17 @@ class App(tk.Tk):
         # ── 발견 현황 ──
         sf = ttk.LabelFrame(F, text="  발견 현황  ")
         sf.pack(fill="x", padx=14, pady=(0, 6))
+        stats_wrap = tk.Frame(sf)
+        stats_wrap.pack(fill="x", padx=6, pady=6)
+        stats_vsb = ttk.Scrollbar(stats_wrap, orient="vertical")
+        stats_vsb.pack(side="right", fill="y")
         self.stats_text = tk.Text(
-            sf, state="disabled", height=4, font=("Courier", 12),
+            stats_wrap, state="disabled", height=8, font=("Courier", 12),
             bg="#0d1117", fg="#58a6ff", relief="flat",
-            padx=10, pady=8)
-        self.stats_text.pack(fill="x", padx=6, pady=6)
+            padx=10, pady=8,
+            yscrollcommand=stats_vsb.set)
+        self.stats_text.pack(side="left", fill="x", expand=True)
+        stats_vsb.configure(command=self.stats_text.yview)
 
         # ── 로그 ──
         lf = ttk.LabelFrame(F, text="  로그  ")
@@ -325,24 +331,25 @@ class App(tk.Tk):
 
     def _refresh_stats(self):
         try:
-            if STATS_PATH.exists():
-                data = json.loads(STATS_PATH.read_text(encoding="utf-8"))
-            else:
-                data = {}
+            data = json.loads(STATS_PATH.read_text(encoding="utf-8")) if STATS_PATH.exists() else {}
         except Exception:
             data = {}
 
-        if data:
-            lines = [f"  {d} : {c}회 발견" for d, c in sorted(data.items())]
-        else:
-            lines = ["  아직 발견된 날짜가 없습니다."]
+        lines = []
+        for d in sorted(data.keys()):
+            entry = data[d]
+            if isinstance(entry, int):
+                lines.append(f"  {d} : {entry}회 발견")
+            else:
+                count = entry.get("count", 0)
+                last  = entry.get("last", "")
+                lines.append(f"  {d} : {count}회 발견  (마지막: {last})")
 
         self.stats_text.configure(state="normal")
         self.stats_text.delete("1.0", "end")
-        self.stats_text.insert("end", "\n".join(lines))
+        self.stats_text.insert("end", "\n".join(lines) if lines else "  아직 발견된 날짜가 없습니다.")
         self.stats_text.configure(state="disabled")
 
-        # 3초마다 자동 갱신
         self.after(3000, self._refresh_stats)
 
     def _log_copy_all(self):
