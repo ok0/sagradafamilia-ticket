@@ -104,10 +104,57 @@ class App(tk.Tk):
         self.minsize(700, 600)
         self.resizable(True, True)
         self._proc = None
+        self._bind_clipboard_shortcuts()
         self._make_scroll_container()
         self._build()
         self._load()
         self._refresh_stats()
+
+    def _bind_clipboard_shortcuts(self):
+        """macOS Tcl/Tk 번들에서 Entry/Spinbox에 Cmd+C/V/X/A가 안 먹는 문제 우회."""
+        def _copy(e):
+            w = e.widget
+            try:
+                w.clipboard_clear()
+                w.clipboard_append(w.selection_get())
+            except tk.TclError:
+                pass
+            return "break"
+
+        def _cut(e):
+            w = e.widget
+            try:
+                w.clipboard_clear()
+                w.clipboard_append(w.selection_get())
+                w.delete("sel.first", "sel.last")
+            except tk.TclError:
+                pass
+            return "break"
+
+        def _paste(e):
+            w = e.widget
+            try:
+                text = w.clipboard_get()
+            except tk.TclError:
+                return "break"
+            try:
+                w.delete("sel.first", "sel.last")
+            except tk.TclError:
+                pass
+            w.insert("insert", text)
+            return "break"
+
+        def _select_all(e):
+            w = e.widget
+            w.selection_range(0, "end")
+            w.icursor("end")
+            return "break"
+
+        for cls in ("Entry", "Spinbox"):
+            self.bind_class(cls, "<Command-c>", _copy)
+            self.bind_class(cls, "<Command-x>", _cut)
+            self.bind_class(cls, "<Command-v>", _paste)
+            self.bind_class(cls, "<Command-a>", _select_all)
 
     def _make_scroll_container(self):
         """전체 내용을 스크롤 가능한 Canvas + Frame 으로 감싼다."""

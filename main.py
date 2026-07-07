@@ -157,6 +157,10 @@ async def run_persistent() -> None:
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
+            for (_, _, _, wid), r in zip(workers, results):
+                if isinstance(r, Exception):
+                    notifier.log(f"[W{wid}] 오류: {r!r}")
+
             if any(r is True for r in results):
                 notifier.log("예매 완료. 모니터링을 종료합니다.")
                 break
