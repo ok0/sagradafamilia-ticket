@@ -143,6 +143,8 @@ async def run_persistent() -> None:
             workers.append((browser, page, group, i + 1))
 
         attempt = 0
+        consecutive_errors: dict[int, int] = {}
+        stop_requested = False
         while True:
             attempt += 1
             dates_str = ", ".join(config.TARGET_DATES)
@@ -160,16 +162,28 @@ async def run_persistent() -> None:
             for (_, _, _, wid), r in zip(workers, results):
                 if isinstance(r, Exception):
                     notifier.log(f"[W{wid}] 오류: {r!r}")
+                    consecutive_errors[wid] = consecutive_errors.get(wid, 0) + 1
+                    if consecutive_errors[wid] >= 3:
+                        notifier.notify_telegram(
+                            "사그라다 파밀리아 모니터 - 오류 반복으로 중단",
+                            f"[W{wid}] 오류가 {consecutive_errors[wid]}회 연속 발생하여 "
+                            f"모니터링을 중단합니다 (사이트 차단/캡챠 가능성).\n마지막 오류: {r!r}"
+                        )
+                        stop_requested = True
+                else:
+                    consecutive_errors[wid] = 0
 
             if any(r is True for r in results):
                 notifier.log("예매 완료. 모니터링을 종료합니다.")
                 break
 
+            if stop_requested:
+                notifier.log("오류 반복으로 모니터링을 중단합니다.")
+                break
+
             # 다음 시도까지 모든 창 최소화 유지
             for _, page, _, _ in workers:
                 await checker._minimize_window(page)
-            notifier.log(f"{config.CHECK_INTERVAL_SECONDS // 60}분 후 재시도... (브라우저 최소화 유지)")
-            await asyncio.sleep(config.CHECK_INTERVAL_SECONDS)
 
         for browser, _, _, _ in workers:
             try:
@@ -206,8 +220,9 @@ async def monitor_loop(auto_book: bool):
             else:
                 notifier.log("해당 슬롯 없음. 대기 중...")
 
-        notifier.log(f"{config.CHECK_INTERVAL_SECONDS // 60}분 후 재시도...")
-        await asyncio.sleep(config.CHECK_INTERVAL_SECONDS)
+        # todo
+        # notifier.log(f"{config.CHECK_INTERVAL_SECONDS // 60}분 후 재시도...")
+        # await asyncio.sleep(config.CHECK_INTERVAL_SECONDS)
 
 
 def main():

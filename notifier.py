@@ -52,6 +52,12 @@ def log(message: str):
     print(f"[{_timestamp()}] {message}")
 
 
+def notify_telegram(title: str, message: str):
+    """데스크톱 알림/사운드 없이 텔레그램으로만 보낸다."""
+    log(f"[텔레그램 알림] {title}: {message}")
+    _send_telegram(f"[{title}]\n{message}")
+
+
 _ALERT_STOP = threading.Event()
 
 def start_alert_sound():
